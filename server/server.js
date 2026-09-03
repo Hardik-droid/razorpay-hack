@@ -50,6 +50,40 @@ function validateRequired(fields, body) {
   return null;
 }
 
+import { neonDb } from './db/neonDb.js';
+
+// 0. Neon Serverless PostgreSQL Database Endpoints
+app.get('/api/db/neon-status', async (req, res) => {
+  try {
+    const status = await neonDb.getStatus();
+    res.json(status);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/db/neon-configure', async (req, res) => {
+  try {
+    const { connectionString } = req.body;
+    if (!connectionString || !connectionString.startsWith('postgres')) {
+      return res.status(400).json({ error: 'Valid PostgreSQL / Neon connection string starting with postgres:// or postgresql:// is required.' });
+    }
+    const result = await neonDb.initializeSchema(connectionString);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/db/neon-provision', async (req, res) => {
+  try {
+    const result = await neonDb.initializeSchema();
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // 1. Health & Agent Telemetry Stream (SSE)
 app.get('/api/status', (req, res) => {
   res.json({
