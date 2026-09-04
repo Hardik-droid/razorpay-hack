@@ -4,23 +4,13 @@ import Header from './components/Header';
 import OnboardingWizard from './components/OnboardingWizard';
 import DashboardView from './components/DashboardView';
 import ProductsView from './components/ProductsView';
-import AiStorefrontView from './components/AiStorefrontView';
-import AiVisibilityView from './components/AiVisibilityView';
-import DataHealthView from './components/DataHealthView';
 import BuyerLeadsView from './components/BuyerLeadsView';
-import AutomationCenterView from './components/AutomationCenterView';
-import AgentHealthView from './components/AgentHealthView';
-import AgentMonitoringView from './components/AgentMonitoringView';
 import PaymentsView from './components/PaymentsView';
-import AnalyticsView from './components/AnalyticsView';
 import SettingsView from './components/SettingsView';
 import ApprovalDrawer from './components/ApprovalDrawer';
-import LiveLogTerminal from './components/LiveLogTerminal';
 import { 
-  Sparkles, 
   CheckCircle2, 
-  X, 
-  Bell 
+  X
 } from 'lucide-react';
 
 // Error Boundary
@@ -38,13 +28,13 @@ class ErrorBoundary extends Component {
         <div className="min-h-screen bg-slate-50 flex items-center justify-center p-8">
           <div className="max-w-md p-6 rounded-2xl bg-white border border-slate-200 shadow-xl text-center space-y-4">
             <div className="text-3xl">⚠️</div>
-            <h2 className="text-lg font-bold text-slate-900">Application Notice</h2>
-            <p className="text-xs text-slate-500 font-mono-code">{this.state.error?.message || 'An unexpected error occurred.'}</p>
+            <h2 className="text-lg font-bold text-slate-900">Something went wrong</h2>
+            <p className="text-sm text-slate-500">We couldn't load your dashboard. Please try again.</p>
             <button
               onClick={() => { this.setState({ hasError: false, error: null }); window.location.reload(); }}
               className="px-4 py-2 rounded-xl bg-blue-600 text-white font-semibold text-xs shadow-xs cursor-pointer"
             >
-              Reload Platform
+              Reload dashboard
             </button>
           </div>
         </div>
@@ -58,31 +48,14 @@ function AppContent() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isWizardOpen, setIsWizardOpen] = useState(false);
-  const [isTerminalOpen, setIsTerminalOpen] = useState(false);
-  
-  const [events, setEvents] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [pendingGateTx, setPendingGateTx] = useState(null);
   const [routedCart, setRoutedCart] = useState(null);
-  const [liveMandateBalance, setLiveMandateBalance] = useState(4150);
   const [sseConnected, setSseConnected] = useState(false);
 
   const eventSourceRef = useRef(null);
   const reconnectTimerRef = useRef(null);
   const notifIdRef = useRef(0);
-
-  const refreshMandateBalance = async () => {
-    try {
-      const res = await fetch('/api/payment/mandates');
-      const data = await res.json();
-      const primary = (data.mandates || []).find(m => m.id === 'mandate_autonomous_shopper_01');
-      if (primary) {
-        setLiveMandateBalance(primary.remaining_daily_budget);
-      }
-    } catch (err) {
-      // silent
-    }
-  };
 
   const connectSSE = () => {
     if (eventSourceRef.current) {
@@ -94,17 +67,6 @@ function AppContent() {
 
     es.onopen = () => setSseConnected(true);
 
-    es.onmessage = (e) => {
-      try {
-        const data = JSON.parse(e.data);
-        if (data.type !== 'CONNECTED') {
-          setEvents((prev) => [data, ...prev].slice(0, 100));
-        }
-      } catch (err) {
-        console.error('SSE Error:', err);
-      }
-    };
-
     es.onerror = () => {
       setSseConnected(false);
       es.close();
@@ -114,7 +76,6 @@ function AppContent() {
 
   useEffect(() => {
     connectSSE();
-    refreshMandateBalance();
 
     return () => {
       if (eventSourceRef.current) eventSourceRef.current.close();
@@ -128,7 +89,6 @@ function AppContent() {
     setTimeout(() => {
       setNotifications((prev) => prev.filter(n => n.id !== id));
     }, 4500);
-    refreshMandateBalance();
   };
 
   const dismissNotification = (id) => {
@@ -138,16 +98,15 @@ function AppContent() {
   const handleRouteToPaymaster = (cart) => {
     setRoutedCart(cart);
     setActiveTab('payments');
-    triggerNotification(`Cart routed to Payments: ₹${cart.total_amount || cart.subtotal}`);
+    triggerNotification(`Buyer request ready for review: ₹${cart.total_amount || cart.subtotal}`);
   };
 
   const handleApproveGateTx = async (transactionId) => {
     try {
       const res = await fetch(`/api/payment/approve/${transactionId}`, { method: 'POST' });
-      const data = await res.json();
+      await res.json();
       setPendingGateTx(null);
-      triggerNotification(`Order Approved! Captured on Razorpay Test API: ${data.razorpay_order_id}`);
-      refreshMandateBalance();
+      triggerNotification('Order approved and payment captured.');
     } catch (err) {
       console.error(err);
     }
@@ -158,11 +117,10 @@ function AppContent() {
       await fetch(`/api/payment/reject/${transactionId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason: 'Declined by Merchant Admin in Approval Drawer' }),
+        body: JSON.stringify({ reason: 'Declined by merchant' }),
       });
       setPendingGateTx(null);
-      triggerNotification('Transaction safely rejected. Zero funds charged.');
-      refreshMandateBalance();
+      triggerNotification('Order declined. No payment was taken.');
     } catch (err) {
       console.error(err);
     }
@@ -171,14 +129,11 @@ function AppContent() {
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex font-sans antialiased">
       
-      {/* 1. SaaS Sidebar (10-section Shopify/Stripe navigation) */}
       <Sidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        onOpenWizard={() => setIsWizardOpen(true)}
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
-        discrepanciesCount={3}
         leadsCount={2}
       />
 
@@ -188,15 +143,13 @@ function AppContent() {
         {/* Top Header */}
         <Header
           onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-          onOpenWizard={() => setIsWizardOpen(true)}
-          mandateBalance={liveMandateBalance}
+          isSidebarOpen={isSidebarOpen}
+          onSyncStore={() => setIsWizardOpen(true)}
           isLive={sseConnected}
-          onToggleTerminal={() => setIsTerminalOpen(!isTerminalOpen)}
-          isTerminalOpen={isTerminalOpen}
         />
 
         {/* Dynamic Toast Notifications Stack */}
-        <div className="fixed top-20 right-6 z-50 space-y-2 pointer-events-none">
+        <div className="fixed top-20 right-4 sm:right-6 z-50 space-y-2 pointer-events-none" aria-live="polite">
           {notifications.map((n) => (
             <div
               key={n.id}
@@ -205,8 +158,10 @@ function AppContent() {
               <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
               <span className="flex-1 font-medium">{n.message}</span>
               <button
+                type="button"
                 onClick={() => dismissNotification(n.id)}
                 className="text-slate-400 hover:text-slate-600 cursor-pointer shrink-0"
+                aria-label="Dismiss notification"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -232,46 +187,9 @@ function AppContent() {
             />
           )}
 
-          {activeTab === 'storefront' && (
-            <AiStorefrontView
-              onEventNotification={triggerNotification}
-            />
-          )}
-
-          {activeTab === 'visibility' && (
-            <AiVisibilityView
-              onEventNotification={triggerNotification}
-            />
-          )}
-
-          {activeTab === 'datahealth' && (
-            <DataHealthView
-              onEventNotification={triggerNotification}
-            />
-          )}
-
           {activeTab === 'buyerleads' && (
             <BuyerLeadsView
               onRouteToPaymaster={handleRouteToPaymaster}
-              onEventNotification={triggerNotification}
-            />
-          )}
-
-          {activeTab === 'automation' && (
-            <AutomationCenterView
-              onEventNotification={triggerNotification}
-              setActiveTab={setActiveTab}
-            />
-          )}
-
-          {activeTab === 'health' && (
-            <AgentHealthView
-              onEventNotification={triggerNotification}
-            />
-          )}
-
-          {activeTab === 'monitoring' && (
-            <AgentMonitoringView
               onEventNotification={triggerNotification}
             />
           )}
@@ -284,38 +202,19 @@ function AppContent() {
             />
           )}
 
-          {activeTab === 'analytics' && (
-            <AnalyticsView />
-          )}
-
           {activeTab === 'settings' && (
             <SettingsView
               onEventNotification={triggerNotification}
             />
           )}
         </main>
-
-        {/* Clean Footer */}
-        <footer className="border-t border-slate-200 bg-white py-4 px-6 text-center text-xs text-slate-400 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <div>
-            Storefront for Machines © 2026 • AI Commerce & Machine-Discoverable Storefront Platform
-          </div>
-          <div className="flex items-center space-x-3 text-slate-500 font-medium">
-            <span>Schema.org JSON-LD</span>
-            <span>•</span>
-            <span>AP2 Protocol</span>
-            <span>•</span>
-            <span>Razorpay Test API</span>
-          </div>
-        </footer>
-
       </div>
 
       {/* 3. Onboarding Wizard Modal */}
       <OnboardingWizard
         isOpen={isWizardOpen}
         onClose={() => setIsWizardOpen(false)}
-        onComplete={() => triggerNotification('🎉 Onboarding Complete: Your store is now ready for AI buyers!')}
+        onComplete={() => triggerNotification('Your store is synced and ready.')}
       />
 
       {/* 4. Human Approval Drawer Modal (for orders > ₹2,000) */}
@@ -324,13 +223,6 @@ function AppContent() {
         onApprove={handleApproveGateTx}
         onReject={handleRejectGateTx}
         onClose={() => setPendingGateTx(null)}
-      />
-
-      {/* 5. Live Agent Event Log Terminal */}
-      <LiveLogTerminal
-        events={events}
-        isOpen={isTerminalOpen}
-        onClose={() => setIsTerminalOpen(false)}
       />
 
     </div>

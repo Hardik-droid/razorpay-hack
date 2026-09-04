@@ -1,57 +1,94 @@
 import React, { useState } from 'react';
-import { 
-  TrendingUp, 
-  Package, 
-  Search, 
-  ShoppingCart, 
-  ArrowUpRight, 
-  Sparkles, 
-  ShieldCheck, 
-  AlertTriangle, 
-  CheckCircle2, 
-  Clock, 
-  ExternalLink,
+import {
+  AlertTriangle,
+  ArrowRight,
+  Check,
+  CheckCircle2,
   ChevronRight,
-  Play,
-  RotateCcw,
-  Zap,
-  Activity
+  Clock,
+  IndianRupee,
+  Package,
+  RefreshCw,
+  ShieldCheck,
+  ShoppingBag,
+  Sparkles,
+  TrendingUp,
+  Users,
 } from 'lucide-react';
 
-export default function DashboardView({ 
-  onRunScenario, 
-  onEventNotification, 
+const kpis = [
+  {
+    label: 'Sales from AI shoppers',
+    value: '₹18,450',
+    note: '12 completed orders',
+    icon: IndianRupee,
+    tone: 'bg-emerald-50 text-emerald-700',
+  },
+  {
+    label: 'Products available',
+    value: '542',
+    note: 'All products synced',
+    icon: Package,
+    tone: 'bg-blue-50 text-blue-700',
+  },
+  {
+    label: 'Customer reach',
+    value: '78%',
+    note: 'Up 12% this month',
+    icon: TrendingUp,
+    tone: 'bg-violet-50 text-violet-700',
+  },
+  {
+    label: 'Requests waiting',
+    value: '2',
+    note: 'Ready for review',
+    icon: Users,
+    tone: 'bg-amber-50 text-amber-700',
+  },
+];
+
+const recentOrders = [
+  { buyer: 'Online shopper', item: 'Subko Lot 77 (250g)', amount: '₹850', status: 'Paid', time: '10 min ago' },
+  { buyer: 'Office pantry', item: 'Roaster Discovery + V60', amount: '₹6,050', status: 'Approved', time: '2 hours ago' },
+  { buyer: 'Online shopper', item: 'Nitro Cold Brew 4-Pack', amount: '₹680', status: 'Paid', time: 'Yesterday' },
+];
+
+const demoScenarios = [
+  { id: 'autonomous_buy', label: 'Small order', note: 'Pays automatically under ₹2,000' },
+  { id: 'price_drift_halt', label: 'Wrong price', note: 'Blocks a mismatched listing' },
+  { id: 'human_gate_escalation', label: 'Large order', note: 'Asks you before payment' },
+  { id: 'mandate_exhaustion_refusal', label: 'Daily limit', note: 'Stops overspending' },
+  { id: 'idempotent_retry', label: 'Duplicate request', note: 'Prevents a second charge' },
+];
+
+export default function DashboardView({
+  onEventNotification,
   onTriggerApprovalModal,
   setActiveTab,
-  onOpenWizard
+  onOpenWizard,
 }) {
   const [runningScenario, setRunningScenario] = useState(null);
   const [simulationResult, setSimulationResult] = useState(null);
 
-  const kpis = [
-    { label: 'AI Store Health', value: '92%', change: '+4.2%', trend: 'up', desc: 'Catalog machine-readability', icon: ShieldCheck, color: 'text-emerald-600 bg-emerald-50' },
-    { label: 'Products Indexed', value: '542', change: '100% synced', trend: 'neutral', desc: 'Active in machine feed', icon: Package, color: 'text-blue-600 bg-blue-50' },
-    { label: 'AI Visibility Score', value: '78%', change: '+12%', trend: 'up', desc: 'Appears in 8/10 AI queries', icon: Search, color: 'text-indigo-600 bg-indigo-50' },
-    { label: 'Buyer Intent Leads', value: '23', change: '5 today', trend: 'up', desc: 'Carts created by AI shoppers', icon: ShoppingCart, color: 'text-amber-600 bg-amber-50' },
-  ];
-
-  const handleSimulate = async (scenarioId, label) => {
-    setRunningScenario(scenarioId);
+  const handleSimulate = async (scenario) => {
+    setRunningScenario(scenario.id);
     setSimulationResult(null);
+
     try {
-      const res = await fetch(`/api/simulate/${scenarioId}`, { method: 'POST' });
-      const data = await res.json();
-      setSimulationResult({ id: scenarioId, label, data });
+      const response = await fetch(`/api/simulate/${scenario.id}`, { method: 'POST' });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Demo could not be completed.');
 
-      if (data.result?.requires_human_approval && onTriggerApprovalModal) {
-        onTriggerApprovalModal(data.result.pending_transaction);
+      const result = data.result || data;
+      setSimulationResult({ label: scenario.label, result });
+
+      if (result.requires_human_approval && onTriggerApprovalModal) {
+        onTriggerApprovalModal(result.pending_transaction);
       }
 
-      if (onEventNotification) {
-        onEventNotification(`Simulation Completed: ${label}`);
-      }
-    } catch (err) {
-      console.error(err);
+      onEventNotification?.(`${scenario.label} safeguard checked successfully.`);
+    } catch (error) {
+      setSimulationResult({ label: scenario.label, error: error.message });
     } finally {
       setRunningScenario(null);
     }
@@ -59,253 +96,226 @@ export default function DashboardView({
 
   return (
     <div className="space-y-6">
-      
-      {/* Top Welcome Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 bg-white border border-slate-200 rounded-2xl shadow-xs">
-        <div>
-          <div className="flex items-center space-x-2 text-xs font-medium text-slate-500 uppercase tracking-wider">
-            <span className="w-2 h-2 rounded-full bg-emerald-500" />
-            <span>Store ID: merchant-subko-001 • Mumbai, IN</span>
-          </div>
-          <h1 className="text-2xl font-bold text-slate-900 mt-1">
-            Good morning, Subko Coffee
-          </h1>
-          <p className="text-xs text-slate-500 mt-1 max-w-xl">
-            Your store is live and ready for AI shopping agents. Products are indexed, price drift shields are active, and autonomous checkout is enabled via Razorpay.
-          </p>
-        </div>
-
-        <div className="flex items-center space-x-2.5">
-          <button
-            onClick={onOpenWizard}
-            className="flex items-center space-x-1.5 px-3.5 py-2 text-xs font-semibold bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl transition-all cursor-pointer shadow-2xs"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-            <span>Sync New Catalog</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('visibility')}
-            className="flex items-center space-x-1.5 px-3.5 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-xs transition-all cursor-pointer"
-          >
-            <span>Check AI Visibility</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      </div>
-
-      {/* Top 4 KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {kpis.map((kpi, i) => {
-          const Icon = kpi.icon;
-          return (
-            <div key={i} className="p-5 bg-white border border-slate-200 rounded-xl shadow-xs hover:border-slate-300 transition-all">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-slate-500">{kpi.label}</span>
-                <div className={`p-2 rounded-lg ${kpi.color}`}>
-                  <Icon className="w-4 h-4" />
-                </div>
-              </div>
-              <div className="flex items-baseline space-x-2 mt-3">
-                <span className="text-2xl font-bold text-slate-900 tracking-tight">{kpi.value}</span>
-                <span className="text-xs font-semibold text-emerald-600 flex items-center">
-                  <ArrowUpRight className="w-3 h-3 mr-0.5" />
-                  {kpi.change}
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-400 mt-1">{kpi.desc}</p>
+      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
+        <div className="flex flex-col gap-5 p-6 sm:flex-row sm:items-center sm:justify-between lg:p-7">
+          <div className="max-w-2xl">
+            <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              Your AI sales assistant is working
             </div>
-          );
-        })}
-      </div>
-
-      {/* Interactive Simulation & Test Arena (Merchant-Friendly Terminology) */}
-      <div className="p-5 bg-white border border-slate-200 rounded-2xl shadow-xs space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-sm font-bold text-slate-900 flex items-center space-x-2">
-              <Zap className="w-4 h-4 text-blue-600" />
-              <span>Interactive Merchant Test Arena</span>
-            </h3>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Simulate how AI shopping agents interact with your store and verify safeguards with 1-click tests.
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+              Good morning, Subko Coffee
+            </h1>
+            <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600">
+              Your catalog is up to date, customers can find your products, and checkout is protected. You only step in when an order needs approval.
             </p>
           </div>
-          <span className="text-[11px] font-medium text-blue-700 bg-blue-50 px-2.5 py-1 rounded-full border border-blue-100">
-            5 Test Scenarios Available
-          </span>
-        </div>
 
-        {/* 5 Scenario Buttons Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-          {[
-            { id: 'autonomous_buy', label: '1. Autonomous Purchase', sub: '₹850 below threshold', color: 'hover:border-emerald-400' },
-            { id: 'price_drift_halt', label: '2. Price Mismatch Halt', sub: 'Intercepts wrong price', color: 'hover:border-rose-400' },
-            { id: 'human_gate_escalation', label: '3. Order Approval Drawer', sub: '₹6,050 high-value gate', color: 'hover:border-amber-400' },
-            { id: 'mandate_exhaustion_refusal', label: '4. Budget Limit Refusal', sub: 'Exceeds daily budget', color: 'hover:border-purple-400' },
-            { id: 'idempotent_retry', label: '5. Network Retry Safety', sub: 'Zero duplicate charging', color: 'hover:border-cyan-400' },
-          ].map((sc) => (
+          <div className="flex flex-col gap-2 sm:flex-row">
             <button
-              key={sc.id}
-              disabled={runningScenario !== null}
-              onClick={() => handleSimulate(sc.id, sc.label)}
-              className={`p-3 text-left rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-white transition-all cursor-pointer flex flex-col justify-between space-y-2 ${sc.color}`}
+              type="button"
+              onClick={onOpenWizard}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50"
             >
-              <div>
-                <div className="font-semibold text-xs text-slate-900 flex items-center justify-between">
-                  <span>{sc.label}</span>
-                  {runningScenario === sc.id && <Clock className="w-3.5 h-3.5 text-blue-600 animate-spin" />}
-                </div>
-                <div className="text-[11px] text-slate-400 mt-1">{sc.sub}</div>
-              </div>
-              <span className="text-[10px] font-medium text-blue-600 hover:text-blue-700 flex items-center pt-1">
-                Run Test →
-              </span>
+              <RefreshCw className="h-3.5 w-3.5 text-blue-600" />
+              Sync products
             </button>
-          ))}
-        </div>
-
-        {/* Simulation Output Toast / Card */}
-        {simulationResult && (
-          <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2 animate-slide-down">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-800 flex items-center space-x-1.5">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                <span>Test Result: {simulationResult.label}</span>
-              </span>
-              <span className="text-[11px] font-mono-code text-slate-500">Status: {simulationResult.data.result?.status || 'COMPLETED'}</span>
-            </div>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              {simulationResult.data.result?.explainable_summary || simulationResult.data.result?.message || 'Transaction executed and verified against active safeguards.'}
-            </p>
+            <button
+              type="button"
+              onClick={() => setActiveTab('buyerleads')}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-blue-700"
+            >
+              Review buyer requests
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
           </div>
-        )}
-      </div>
+        </div>
+      </section>
 
-      {/* Two Column Layout: Recent Buyer Activity & Quick Health Breakdown */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Left 2 Cols: Recent Inbound AI Orders */}
-        <div className="lg:col-span-2 p-5 bg-white border border-slate-200 rounded-2xl shadow-xs space-y-4">
-          <div className="flex items-center justify-between">
+      <section aria-label="Store summary" className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {kpis.map(({ label, value, note, icon: Icon, tone }) => (
+          <div key={label} className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-medium text-slate-500">{label}</p>
+                <p className="mt-2 text-2xl font-bold tracking-tight text-slate-900">{value}</p>
+                <p className="mt-1 text-[11px] text-slate-400">{note}</p>
+              </div>
+              <span className={`rounded-lg p-2 ${tone}`}>
+                <Icon className="h-4 w-4" />
+              </span>
+            </div>
+          </div>
+        ))}
+      </section>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs lg:col-span-2">
+          <div className="flex items-center justify-between gap-4">
             <div>
-              <h3 className="text-sm font-bold text-slate-900">Recent AI Buyer Transactions</h3>
-              <p className="text-xs text-slate-500">Latest autonomous purchases and carts placed by AI shoppers</p>
+              <h2 className="text-sm font-bold text-slate-900">Needs your attention</h2>
+              <p className="mt-0.5 text-xs text-slate-500">Only the decisions that need a person appear here.</p>
             </div>
+            <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700">3 items</span>
+          </div>
+
+          <div className="mt-4 divide-y divide-slate-100 rounded-xl border border-slate-200">
             <button
-              onClick={() => setActiveTab('payments')}
-              className="text-xs font-medium text-blue-600 hover:text-blue-700 flex items-center"
+              type="button"
+              onClick={() => setActiveTab('buyerleads')}
+              className="flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-slate-50"
             >
-              View all orders →
-            </button>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="border-b border-slate-100 text-slate-400 font-medium">
-                  <th className="pb-2.5">Buyer Agent / Query</th>
-                  <th className="pb-2.5">Items</th>
-                  <th className="pb-2.5">Amount</th>
-                  <th className="pb-2.5">Status</th>
-                  <th className="pb-2.5 text-right">Time</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {[
-                  { agent: 'Subko Autonomous Shopper', query: 'Procure 1 pack of Subko Lot 77 Anaerobic', items: 'Subko Lot 77 (250g)', amount: '₹850', status: 'Captured', statusColor: 'bg-emerald-50 text-emerald-700 border-emerald-200', time: '10 min ago' },
-                  { agent: 'Office Pantry Agent', query: 'Quarterly office specialty coffee restock', items: 'Roaster Discovery + V60', amount: '₹6,050', status: 'Human Approved', statusColor: 'bg-blue-50 text-blue-700 border-blue-200', time: '2 hours ago' },
-                  { agent: 'Claude Shopping Assistant', query: 'Single origin beans based on stale cache', items: 'Subko Lot 77', amount: '₹850', status: 'Drift Halted', statusColor: 'bg-rose-50 text-rose-700 border-rose-200', time: 'Yesterday' },
-                  { agent: 'Autonomous Client Agent', query: 'Cold brew 4-pack verification purchase', items: 'Nitro Cold Brew 4-Pack', amount: '₹680', status: 'Captured', statusColor: 'bg-emerald-50 text-emerald-700 border-emerald-200', time: 'Yesterday' },
-                ].map((row, idx) => (
-                  <tr key={idx} className="hover:bg-slate-50/50">
-                    <td className="py-3 pr-2">
-                      <div className="font-semibold text-slate-900">{row.agent}</div>
-                      <div className="text-[11px] text-slate-400 line-clamp-1">{row.query}</div>
-                    </td>
-                    <td className="py-3 text-slate-600">{row.items}</td>
-                    <td className="py-3 font-semibold text-slate-900 font-mono-code">{row.amount}</td>
-                    <td className="py-3">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium border ${row.statusColor}`}>
-                        {row.status}
-                      </span>
-                    </td>
-                    <td className="py-3 text-right text-slate-400 text-[11px]">{row.time}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Right Col: AI Search Health & Quick Stats */}
-        <div className="p-5 bg-white border border-slate-200 rounded-2xl shadow-xs space-y-4 flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-bold text-slate-900">AI Recommendation Engine</h3>
-              <span className="text-[10px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">Optimal</span>
-            </div>
-            
-            <p className="text-xs text-slate-500 leading-relaxed">
-              Leading shopping agents regularly test your catalog for availability, roast freshness, and price accuracy.
-            </p>
-
-            <div className="space-y-3 mt-4">
-              <div>
-                <div className="flex justify-between text-xs font-medium text-slate-700 mb-1">
-                  <span>ChatGPT Search Visibility</span>
-                  <span className="text-blue-600 font-bold">92%</span>
-                </div>
-                <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-blue-600 rounded-full" style={{ width: '92%' }} />
-                </div>
-              </div>
-
-              <div>
-                <div className="flex justify-between text-xs font-medium text-slate-700 mb-1">
-                  <span>Google AI Overviews</span>
-                  <span className="text-indigo-600 font-bold">85%</span>
-                </div>
-                <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-indigo-600 rounded-full" style={{ width: '85%' }} />
-                </div>
-              </div>
-
-              <div>
-                <div className="flex justify-between text-xs font-medium text-slate-700 mb-1">
-                  <span>Price Shield Accuracy</span>
-                  <span className="text-emerald-600 font-bold">98%</span>
-                </div>
-                <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-emerald-600 rounded-full" style={{ width: '98%' }} />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="pt-4 border-t border-slate-100 space-y-2">
-            <button
-              onClick={() => setActiveTab('datahealth')}
-              className="w-full py-2 px-3 text-xs font-medium text-amber-700 bg-amber-50 hover:bg-amber-100/70 border border-amber-200 rounded-xl transition-colors flex items-center justify-between cursor-pointer"
-            >
-              <div className="flex items-center space-x-1.5">
-                <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
-                <span>3 External Price Leaks Detected</span>
-              </div>
-              <span>Fix →</span>
+              <span className="rounded-lg bg-blue-50 p-2 text-blue-700">
+                <ShoppingBag className="h-4 w-4" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-xs font-semibold text-slate-900">2 buyer requests are ready</span>
+                <span className="mt-0.5 block text-[11px] text-slate-500">Review the items and continue to payment.</span>
+              </span>
+              <ArrowRight className="h-4 w-4 text-slate-400" />
             </button>
 
             <button
-              onClick={() => setActiveTab('storefront')}
-              className="w-full py-2 px-3 text-xs font-medium text-slate-600 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 rounded-xl transition-colors flex items-center justify-center space-x-1.5 cursor-pointer"
+              type="button"
+              onClick={() => setActiveTab('products')}
+              className="flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-slate-50"
             >
-              <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
-              <span>Inspect Public JSON-LD Feed</span>
+              <span className="rounded-lg bg-amber-50 p-2 text-amber-700">
+                <AlertTriangle className="h-4 w-4" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-xs font-semibold text-slate-900">1 listing needs a quick review</span>
+                <span className="mt-0.5 block text-[11px] text-slate-500">A marketplace price differs from your catalog.</span>
+              </span>
+              <ArrowRight className="h-4 w-4 text-slate-400" />
             </button>
           </div>
-        </div>
+        </section>
 
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4 text-emerald-600" />
+            <h2 className="text-sm font-bold text-slate-900">Working in the background</h2>
+          </div>
+          <p className="mt-1 text-xs text-slate-500">Routine checks stay out of your way.</p>
+
+          <div className="mt-4 space-y-4">
+            {[
+              ['Catalog checked', '542 products are current'],
+              ['Customer reach monitored', 'Visibility improved this month'],
+              ['Checkout protected', '1 wrong-price order was stopped'],
+            ].map(([title, note]) => (
+              <div key={title} className="flex gap-2.5">
+                <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                <div>
+                  <p className="text-xs font-semibold text-slate-800">{title}</p>
+                  <p className="mt-0.5 text-[11px] text-slate-500">{note}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
       </div>
 
+      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
+        <div className="flex items-center justify-between gap-4 border-b border-slate-100 p-5">
+          <div>
+            <h2 className="text-sm font-bold text-slate-900">Recent orders</h2>
+            <p className="mt-0.5 text-xs text-slate-500">The latest purchases handled for your store.</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActiveTab('payments')}
+            className="text-xs font-semibold text-blue-600 hover:text-blue-700"
+          >
+            View all
+          </button>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="saas-table">
+            <thead>
+              <tr>
+                <th>Buyer</th>
+                <th>Order</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th className="text-right">Time</th>
+              </tr>
+            </thead>
+            <tbody>
+              {recentOrders.map((order) => (
+                <tr key={`${order.item}-${order.time}`}>
+                  <td className="font-semibold text-slate-900">{order.buyer}</td>
+                  <td>{order.item}</td>
+                  <td className="font-semibold text-slate-900">{order.amount}</td>
+                  <td>
+                    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                      <CheckCircle2 className="h-3 w-3" />
+                      {order.status}
+                    </span>
+                  </td>
+                  <td className="text-right text-[11px] text-slate-400">{order.time}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <details className="group rounded-2xl border border-slate-200 bg-white shadow-xs">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+          <div className="flex items-center gap-3">
+            <span className="rounded-lg bg-blue-50 p-2 text-blue-700">
+              <Sparkles className="h-4 w-4" />
+            </span>
+            <div>
+              <h2 className="text-sm font-bold text-slate-900">Preview protected checkout</h2>
+              <p className="mt-0.5 text-xs text-slate-500">Optional demo controls stay tucked away until you need them.</p>
+            </div>
+          </div>
+          <ChevronRight className="h-4 w-4 text-slate-400 transition-transform group-open:rotate-90" />
+        </summary>
+
+        <div className="border-t border-slate-100 p-5">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            {demoScenarios.map((scenario) => (
+              <button
+                key={scenario.id}
+                type="button"
+                disabled={runningScenario !== null}
+                onClick={() => handleSimulate(scenario)}
+                className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-left transition-colors hover:border-blue-300 hover:bg-blue-50/40 disabled:cursor-wait disabled:opacity-60"
+              >
+                <span className="flex items-center justify-between gap-2 text-xs font-semibold text-slate-900">
+                  {scenario.label}
+                  {runningScenario === scenario.id && <Clock className="h-3.5 w-3.5 animate-spin text-blue-600" />}
+                </span>
+                <span className="mt-1 block text-[11px] leading-4 text-slate-500">{scenario.note}</span>
+              </button>
+            ))}
+          </div>
+
+          {simulationResult && (
+            <div
+              aria-live="polite"
+              className={`mt-4 rounded-xl border p-4 text-xs ${
+                simulationResult.error
+                  ? 'border-rose-200 bg-rose-50 text-rose-800'
+                  : 'border-emerald-200 bg-emerald-50 text-emerald-800'
+              }`}
+            >
+              <p className="font-semibold">{simulationResult.label}</p>
+              <p className="mt-1 leading-5">
+                {simulationResult.error ||
+                  simulationResult.result.explainable_summary ||
+                  simulationResult.result.message ||
+                  'The order was checked and handled safely.'}
+              </p>
+            </div>
+          )}
+        </div>
+      </details>
     </div>
   );
 }

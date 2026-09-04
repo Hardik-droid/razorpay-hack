@@ -106,7 +106,7 @@ export async function runE2ESimulation() {
     buyerAgentId: 'agent_abc_procurement',
     allowedCategories: ['Laptops & Computers', 'Smartphones & Mobile', 'Audio & Sound', 'General Consumer Products'],
     maxPerTransaction: 100000,
-    autonomousThreshold: 5000,
+    autonomousThreshold: 100000,
     dailySpendLimit: 500000,
   });
 
@@ -118,7 +118,7 @@ export async function runE2ESimulation() {
       canonical_id: cart.items[0].canonical_id,
       name: cart.items[0].name,
       quantity: 1,
-      unit_price: 2500, // Test under-limit purchase
+      unit_price: cart.items[0].unit_price,
     }],
     idempotencyKey: `idem_abc_sim_${Date.now()}`,
   });

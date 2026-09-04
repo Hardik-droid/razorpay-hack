@@ -1,4 +1,5 @@
 import { paymasterAgent } from '../../server/agents/paymasterAgent.js';
+import { integrityAgent } from '../../server/agents/integrityAgent.js';
 
 export async function runPaymasterTests() {
   console.log('\n========================================');
@@ -37,12 +38,12 @@ export async function runPaymasterTests() {
 
   // Test 2 (User Spec 6.2): Payment Above Limit -> BLOCK
   console.log('\n--- Test 5.2: Payment Above Limit (BLOCK) ---');
-  // Mandate has max_per_transaction: 2000. Try ordering ₹15,000 for an allowed category item.
+  // Mandate has max_per_transaction: 2000. Three canonical ₹680 items total ₹2,040.
   const aboveLimitPayment = await paymasterAgent.executeCheckout({
     mandateId: 'mandate_autonomous_shopper_01',
     actingAgent: 'Rogue Shopper',
     buyerIntent: 'Single order exceeding per-transaction limit',
-    lineItems: [{ canonical_id: 'CAN-SUBKO-CB-CANS-4X', unit_price: 15000, quantity: 1 }],
+    lineItems: [{ canonical_id: 'CAN-SUBKO-CB-CANS-4X', unit_price: 680, quantity: 3 }],
     idempotencyKey: `idem_limit_test_${Date.now()}`,
   });
 
@@ -50,6 +51,40 @@ export async function runPaymasterTests() {
   assert(aboveLimitPayment.status === 'BLOCKED', 'Status is BLOCKED');
   assert(aboveLimitPayment.code === 'MAX_PER_TX_EXCEEDED', 'Error code is MAX_PER_TX_EXCEEDED');
   assert(aboveLimitPayment.error.includes('MANDATE_EXCEEDED'), 'Error message cites mandate ceiling violation');
+
+  // Unknown mandates must never fall back to another buyer's authorization.
+  const unknownMandate = await paymasterAgent.executeCheckout({
+    mandateId: 'mandate-does-not-exist',
+    lineItems: [{ canonical_id: 'CAN-SUBKO-CB-CANS-4X', unit_price: 680, quantity: 1 }],
+  });
+  assert(unknownMandate.success === false, 'Unknown mandate is rejected');
+  assert(unknownMandate.code === 'MANDATE_INVALID', 'Unknown mandate cannot fall back to the default mandate');
+
+  // Client-supplied prices are checked against the canonical catalog price.
+  const forgedPrice = await paymasterAgent.executeCheckout({
+    mandateId: 'mandate_autonomous_shopper_01',
+    lineItems: [{ canonical_id: 'CAN-SUBKO-CB-CANS-4X', unit_price: 1, quantity: 1 }],
+  });
+  assert(forgedPrice.success === false, 'Forged client price is rejected');
+  assert(forgedPrice.code === 'PRICE_MISMATCH', 'Forged price reports canonical price mismatch');
+
+  const derivedPrice = await paymasterAgent.executeCheckout({
+    mandateId: 'mandate_autonomous_shopper_01',
+    lineItems: [{ canonical_id: 'CAN-SUBKO-CB-CANS-4X', quantity: 1 }],
+  });
+  assert(derivedPrice.success === true, 'Missing client price is derived from the canonical catalog');
+  assert(derivedPrice.audit_record.amount === 680, 'Canonical catalog price is charged');
+
+  const previousDriftState = integrityAgent.isDriftSimulationActive;
+  integrityAgent.isDriftSimulationActive = false;
+  const forcedDrift = await paymasterAgent.executeCheckout({
+    mandateId: 'mandate_autonomous_shopper_01',
+    lineItems: [{ canonical_id: 'CAN-SUBKO-LOT77-ANAE', unit_price: 850, quantity: 1 }],
+    forcePriceDriftTest: true,
+  });
+  assert(forcedDrift.status === 'HALTED_PRICE_DRIFT', 'Forced drift demo remains deterministic');
+  assert(integrityAgent.isDriftSimulationActive === false, 'Forced drift does not leak global state into later checkouts');
+  integrityAgent.isDriftSimulationActive = previousDriftState;
 
   // Test 3 (User Spec 6.3): Duplicate Payment Request -> Only ONE Transaction (Idempotent)
   console.log('\n--- Test 5.3: Duplicate Request / Idempotency ---');

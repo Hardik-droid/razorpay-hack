@@ -1,20 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  CreditCard, 
-  ShieldCheck, 
-  CheckCircle2, 
-  AlertTriangle, 
-  Clock, 
-  ArrowRight, 
-  ExternalLink, 
-  RefreshCw, 
-  Search, 
-  Filter, 
-  X,
-  FileCheck,
-  Zap,
-  Lock
-} from 'lucide-react';
+import { CreditCard, ShieldCheck, ShoppingBag } from 'lucide-react';
 
 export default function PaymentsView({ 
   initialCart, 
@@ -39,7 +24,7 @@ export default function PaymentsView({
 
   useEffect(() => {
     if (initialCart) {
-      setAmount(String(initialCart.total_amount || initialCart.subtotal || 850));
+      setAmount(String(initialCart.subtotal || initialCart.total_amount || 850));
       setIntent(initialCart.customer_intent || 'Procure items from buyer cart');
     }
   }, [initialCart]);
@@ -70,6 +55,7 @@ export default function PaymentsView({
     setIsProcessing(true);
     try {
       const amt = parseFloat(amount) || 850;
+      const routedItems = initialCart?.line_items || initialCart?.items;
       let canonicalId = 'CAN-SUBKO-LOT77-ANAE';
       let prodName = 'Subko Lot 77 Ratnagiri Anaerobic';
       if (amt === 680) {
@@ -87,10 +73,14 @@ export default function PaymentsView({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          mandateId: 'mandate_autonomous_shopper_01',
+          mandateId: initialCart && Number(initialCart.subtotal || initialCart.total_amount) > 2000
+            ? 'mandate_enterprise_restock_02'
+            : 'mandate_autonomous_shopper_01',
           actingAgent: 'Subko Autonomous Shopper Agent (v2.4)',
           buyerIntent: intent,
-          lineItems: [{ canonical_id: canonicalId, name: prodName, quantity: 1, unit_price: amt }],
+          lineItems: routedItems?.length
+            ? routedItems.map(({ canonical_id, quantity, unit_price }) => ({ canonical_id, quantity, unit_price }))
+            : [{ canonical_id: canonicalId, name: prodName, quantity: 1, unit_price: amt }],
           idempotencyKey: `idem_${Date.now()}`,
           forcePriceDriftTest: forceDrift,
         }),
@@ -109,11 +99,11 @@ export default function PaymentsView({
 
       if (onEventNotification) {
         if (data.drift_halted) {
-          onEventNotification('⚠️ Price drift detected: Paymaster halted transaction before charging.');
+          onEventNotification('Price changed, so the order was stopped before payment.');
         } else if (data.requires_human_approval) {
-          onEventNotification('🛡️ High-value order routed to Human Gatekeeper Approval.');
+          onEventNotification('This order is waiting for your approval.');
         } else if (data.success) {
-          onEventNotification(`⚡ Captured on Razorpay Test API: ${data.razorpay_order_id}`);
+          onEventNotification('Order paid successfully.');
         }
       }
     } catch (err) {
@@ -130,239 +120,189 @@ export default function PaymentsView({
     return true;
   });
 
+  const completedOrders = auditLogs.filter((log) => log.status === 'CAPTURED_SUCCESS');
+  const protectedOrders = auditLogs.filter((log) => log.status === 'HALTED_PRICE_DRIFT');
+  const completedValue = completedOrders.reduce((total, log) => total + Number(log.amount || 0), 0);
+
+  const getStatus = (log) => {
+    if (log.status === 'CAPTURED_SUCCESS') return ['Paid', 'bg-emerald-50 text-emerald-700 border-emerald-200'];
+    if (log.status === 'HALTED_PRICE_DRIFT') return ['Payment stopped', 'bg-rose-50 text-rose-700 border-rose-200'];
+    if (log.status === 'GATE_REJECTED') return ['Declined', 'bg-slate-100 text-slate-600 border-slate-200'];
+    return ['Needs approval', 'bg-amber-50 text-amber-700 border-amber-200'];
+  };
+
+  const getSafetyMessage = (log) => {
+    if (log.status === 'HALTED_PRICE_DRIFT') return 'The price changed, so payment was stopped. Nothing was charged.';
+    if (log.status === 'GATE_REJECTED') return 'This order was declined. Nothing was charged.';
+    if (log.status === 'CAPTURED_SUCCESS' && Number(log.amount) > 2000) return 'This larger order was approved before payment.';
+    if (log.status === 'CAPTURED_SUCCESS') return 'This order was within your automatic payment limit and completed safely.';
+    return 'This order needs your approval before any payment can happen.';
+  };
+
   return (
     <div className="space-y-6">
-      
-      {/* Top Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-white border border-slate-200 rounded-2xl shadow-xs">
+      <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <div className="flex items-center space-x-2 text-xs font-semibold text-blue-600 uppercase tracking-wider">
-            <CreditCard className="w-4 h-4" />
-            <span>Autonomous Payments & Mandates</span>
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-blue-600">
+            <CreditCard className="h-4 w-4" />
+            <span>Orders</span>
           </div>
-          <h2 className="text-xl font-bold text-slate-900 mt-0.5">
-            Agentic Checkout Ledger
-          </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Stripe/Razorpay grade ledger enforcing AP2 Mandates, Human Threshold Gates (&gt; ₹2,000), and Zero-Double-Charge Idempotency.
+          <h2 className="mt-1 text-xl font-bold text-slate-900">Orders &amp; approvals</h2>
+          <p className="mt-1 max-w-2xl text-xs text-slate-500">
+            Review completed orders and see when a payment was held for your approval or stopped for safety.
           </p>
         </div>
-
-        <div className="flex items-center space-x-2">
-          <span className="text-xs font-semibold text-blue-700 bg-blue-50 px-3 py-1.5 rounded-xl border border-blue-200">
-            Razorpay Test Mode
-          </span>
+        <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700">
+          <ShieldCheck className="h-4 w-4" />
+          <span>Price protection is on</span>
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-xs">
-          <span className="text-[11px] font-medium text-slate-500">Total Autonomous Volume</span>
-          <div className="text-xl font-bold text-slate-900 mt-1 font-mono-code">₹18,450</div>
-          <p className="text-[10px] text-slate-400 mt-0.5">Captured via Razorpay Test</p>
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
+          <span className="text-[11px] font-medium text-slate-500">Completed value</span>
+          <div className="mt-1 text-xl font-bold text-slate-900">₹{completedValue.toLocaleString()}</div>
         </div>
-
-        <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-xs">
-          <span className="text-[11px] font-medium text-slate-500">Autonomous Gate Ceiling</span>
-          <div className="text-xl font-bold text-emerald-600 mt-1 font-mono-code">₹2,000</div>
-          <p className="text-[10px] text-slate-400 mt-0.5">Orders above require human approval</p>
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
+          <span className="text-[11px] font-medium text-slate-500">Paid orders</span>
+          <div className="mt-1 text-xl font-bold text-emerald-600">{completedOrders.length}</div>
         </div>
-
-        <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-xs">
-          <span className="text-[11px] font-medium text-slate-500">Remaining Daily Pool</span>
-          <div className="text-xl font-bold text-blue-600 mt-1 font-mono-code">₹{mandates[0]?.remaining_daily_budget?.toLocaleString() || '4,150'}</div>
-          <p className="text-[10px] text-slate-400 mt-0.5">Spend allowance remaining</p>
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
+          <span className="text-[11px] font-medium text-slate-500">Stopped safely</span>
+          <div className="mt-1 text-xl font-bold text-rose-600">{protectedOrders.length}</div>
         </div>
-
-        <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-xs">
-          <span className="text-[11px] font-medium text-slate-500">Price Drift Halts</span>
-          <div className="text-xl font-bold text-rose-600 mt-1 font-mono-code">1 intercepted</div>
-          <p className="text-[10px] text-slate-400 mt-0.5">Zero wrong-price charges</p>
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
+          <span className="text-[11px] font-medium text-slate-500">Available today</span>
+          <div className="mt-1 text-xl font-bold text-blue-600">
+            ₹{mandates[0]?.remaining_daily_budget?.toLocaleString() || '4,150'}
+          </div>
         </div>
       </div>
 
-      {/* Two Column Layout: Transaction Table & Detail Drawer */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
-        {/* Left 7 Cols: Transactions List */}
-        <div className="lg:col-span-7 bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden space-y-4 p-5">
-          
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <h3 className="text-sm font-bold text-slate-900">
-              Transactions & Verifications ({filteredLogs.length})
-            </h3>
-
-            {/* Filter Tabs */}
-            <div className="flex items-center space-x-1">
-              {['ALL', 'CAPTURED', 'PENDING', 'HALTED'].map((f) => (
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-xs lg:col-span-7">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <h3 className="text-sm font-bold text-slate-900">Recent orders ({filteredLogs.length})</h3>
+            <div className="flex items-center gap-1">
+              {[
+                ['ALL', 'All'],
+                ['CAPTURED', 'Paid'],
+                ['PENDING', 'Reviewed'],
+                ['HALTED', 'Stopped'],
+              ].map(([value, label]) => (
                 <button
-                  key={f}
-                  onClick={() => setActiveFilter(f)}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-colors cursor-pointer ${
-                    activeFilter === f
+                  key={value}
+                  onClick={() => setActiveFilter(value)}
+                  className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                    activeFilter === value
                       ? 'bg-slate-900 text-white'
-                      : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+                      : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
                   }`}
                 >
-                  {f}
+                  {label}
                 </button>
               ))}
             </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="saas-table">
-              <thead>
-                <tr>
-                  <th>Order / Intent</th>
-                  <th>Amount</th>
-                  <th>Status</th>
-                  <th>Time</th>
-                  <th className="text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredLogs.map((log) => {
-                  const isSelected = selectedTx?.id === log.id;
-                  const isSuccess = log.status === 'CAPTURED_SUCCESS';
-                  const isHalted = log.status === 'HALTED_PRICE_DRIFT';
-
-                  return (
-                    <tr
-                      key={log.id}
-                      onClick={() => setSelectedTx(log)}
-                      className={`cursor-pointer transition-colors ${
-                        isSelected ? 'bg-blue-50/50' : 'hover:bg-slate-50/70'
-                      }`}
-                    >
-                      <td>
-                        <div className="font-semibold text-slate-900 line-clamp-1">{log.buyer_intent}</div>
-                        <div className="text-[10px] font-mono-code text-slate-400">{log.transaction_id}</div>
-                      </td>
-
-                      <td className="font-semibold text-slate-900 font-mono-code">
-                        ₹{log.amount?.toLocaleString()}
-                      </td>
-
-                      <td>
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-                          isSuccess ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                          isHalted ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                          'bg-amber-50 text-amber-700 border-amber-200'
-                        }`}>
-                          {isSuccess ? 'Captured' : isHalted ? 'Drift Halted' : 'Approval Gate'}
-                        </span>
-                      </td>
-
-                      <td className="text-[11px] text-slate-400">
-                        {log.timestamp ? new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now'}
-                      </td>
-
-                      <td className="text-right">
-                        <span className="text-xs font-semibold text-blue-600 hover:text-blue-800">
-                          Inspect →
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Right 5 Cols: 5-Step Fintech Timeline Detail Drawer */}
-        <div className="lg:col-span-5 bg-white border border-slate-200 rounded-2xl shadow-xs p-5 space-y-5">
-          {selectedTx ? (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Transaction Lifecycle</span>
-                  <h4 className="font-bold text-sm text-slate-900 mt-0.5">{selectedTx.transaction_id}</h4>
-                </div>
-                <div className="text-right">
-                  <div className="text-lg font-bold text-slate-900 font-mono-code">₹{selectedTx.amount?.toLocaleString()}</div>
-                  <div className="text-[10px] text-slate-400">INR • Razorpay Test</div>
-                </div>
-              </div>
-
-              {/* 5-Step Timeline */}
-              <div className="space-y-3 relative pl-6 before:content-[''] before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">
-                
-                {/* 1. Authorization */}
-                <div className="relative">
-                  <div className="absolute -left-6 top-0.5 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white shadow-2xs" />
-                  <div className="text-xs font-bold text-slate-900">1. Authorization</div>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    Buyer agent authorized by mandate '{selectedTx.mandate_id || 'mandate_autonomous_shopper_01'}'.
-                  </p>
-                </div>
-
-                {/* 2. Mandate & Category */}
-                <div className="relative">
-                  <div className="absolute -left-6 top-0.5 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white shadow-2xs" />
-                  <div className="text-xs font-bold text-slate-900">2. Mandate & Constraints</div>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    Category whitelist verified. Allowed product categories confirmed.
-                  </p>
-                </div>
-
-                {/* 3. Approval Gate */}
-                <div className="relative">
-                  <div className={`absolute -left-6 top-0.5 w-4 h-4 rounded-full border-2 border-white shadow-2xs ${
-                    selectedTx.amount > 2000 ? 'bg-amber-500' : 'bg-emerald-500'
-                  }`} />
-                  <div className="text-xs font-bold text-slate-900">3. Threshold Gate Evaluation</div>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    {selectedTx.amount <= 2000 
-                      ? `Amount ₹${selectedTx.amount} is within autonomous threshold (<= ₹2,000). Auto-approved.`
-                      : `Amount ₹${selectedTx.amount} exceeds ₹2,000 threshold. Escalated to Human Gatekeeper.`
-                    }
-                  </p>
-                </div>
-
-                {/* 4. Payment Execution */}
-                <div className="relative">
-                  <div className={`absolute -left-6 top-0.5 w-4 h-4 rounded-full border-2 border-white shadow-2xs ${
-                    selectedTx.status === 'CAPTURED_SUCCESS' ? 'bg-emerald-500' : 'bg-rose-500'
-                  }`} />
-                  <div className="text-xs font-bold text-slate-900">4. Payment Capture (Razorpay)</div>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    {selectedTx.razorpay_order_id ? (
-                      <span className="font-mono-code text-slate-700">Order ID: {selectedTx.razorpay_order_id}</span>
-                    ) : (
-                      <span className="text-rose-600 font-medium">Halted before charge. Zero funds debited.</span>
-                    )}
-                  </p>
-                </div>
-
-                {/* 5. Audit Trail */}
-                <div className="relative">
-                  <div className="absolute -left-6 top-0.5 w-4 h-4 rounded-full bg-blue-500 border-2 border-white shadow-2xs" />
-                  <div className="text-xs font-bold text-slate-900">5. Plain-English Audit Trail</div>
-                  <p className="text-[11px] text-slate-600 bg-slate-50 p-2 rounded-lg border border-slate-100 mt-1 leading-relaxed">
-                    {selectedTx.explainable_summary || selectedTx.halt_reason || 'Verified transaction captured with cryptographic signature.'}
-                  </p>
-                </div>
-
-              </div>
-
-              {/* Idempotency & Signature Info */}
-              <div className="pt-3 border-t border-slate-100 text-[11px] font-mono-code text-slate-400 space-y-1">
-                <div>Idempotency Key: {selectedTx.idempotency_key}</div>
-                {selectedTx.razorpay_signature && <div>HMAC Signature: Verified</div>}
-              </div>
-            </div>
+          {isLoading ? (
+            <div className="py-12 text-center text-xs text-slate-400">Loading orders…</div>
+          ) : filteredLogs.length === 0 ? (
+            <div className="py-12 text-center text-xs text-slate-400">No orders in this view.</div>
           ) : (
-            <div className="p-8 text-center text-xs text-slate-400">
-              Select a transaction to inspect its 5-step verification lifecycle.
+            <div className="overflow-x-auto">
+              <table className="saas-table">
+                <thead>
+                  <tr>
+                    <th>Order</th>
+                    <th>Total</th>
+                    <th>Status</th>
+                    <th>Time</th>
+                    <th className="text-right">&nbsp;</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredLogs.map((log) => {
+                    const [status, statusClass] = getStatus(log);
+                    return (
+                      <tr
+                        key={log.id}
+                        onClick={() => setSelectedTx(log)}
+                        className={`cursor-pointer transition-colors ${
+                          selectedTx?.id === log.id ? 'bg-blue-50/50' : 'hover:bg-slate-50/70'
+                        }`}
+                      >
+                        <td>
+                          <div className="max-w-xs truncate font-semibold text-slate-900">{log.buyer_intent || 'Store order'}</div>
+                        </td>
+                        <td className="font-semibold text-slate-900">₹{Number(log.amount || 0).toLocaleString()}</td>
+                        <td>
+                          <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${statusClass}`}>{status}</span>
+                        </td>
+                        <td className="text-[11px] text-slate-400">
+                          {log.timestamp ? new Date(log.timestamp).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'Just now'}
+                        </td>
+                        <td className="text-right text-xs font-semibold text-blue-600">View</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
 
-      </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs lg:col-span-5">
+          {selectedTx ? (
+            <div className="space-y-5">
+              <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Order details</span>
+                  <h4 className="mt-1 text-sm font-bold text-slate-900">{selectedTx.buyer_intent || 'Store order'}</h4>
+                </div>
+                <div className="shrink-0 text-right">
+                  <div className="text-lg font-bold text-slate-900">₹{Number(selectedTx.amount || 0).toLocaleString()}</div>
+                  <div className="text-[10px] text-slate-400">Total</div>
+                </div>
+              </div>
 
+              <div>
+                <h5 className="mb-2 text-xs font-bold text-slate-900">Items</h5>
+                <div className="space-y-2">
+                  {(selectedTx.line_items || []).map((item, index) => (
+                    <div key={index} className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2 text-xs">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <ShoppingBag className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                        <span className="truncate text-slate-700">{item.name || 'Catalog item'} × {item.quantity || 1}</span>
+                      </div>
+                      <span className="shrink-0 font-semibold text-slate-900">
+                        ₹{Number(item.total ?? (item.unit_price || 0) * (item.quantity || 1)).toLocaleString()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-blue-100 bg-blue-50/70 p-3">
+                <div className="flex items-center gap-2 text-xs font-bold text-blue-900">
+                  <ShieldCheck className="h-4 w-4 text-blue-600" />
+                  <span>Safety check</span>
+                </div>
+                <p className="mt-1.5 text-xs leading-relaxed text-blue-800">{getSafetyMessage(selectedTx)}</p>
+              </div>
+
+              <div className="flex items-center justify-between border-t border-slate-100 pt-3 text-[11px] text-slate-400">
+                <span>{getStatus(selectedTx)[0]}</span>
+                <span>{selectedTx.timestamp ? new Date(selectedTx.timestamp).toLocaleString() : 'Just now'}</span>
+              </div>
+            </div>
+          ) : (
+            <div className="flex min-h-64 items-center justify-center text-center text-xs text-slate-400">
+              Select an order to see its items and payment status.
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

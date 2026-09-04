@@ -152,21 +152,21 @@ export default function ProductsView({ onEventNotification, onOpenWizard }) {
             <Package className="w-4 h-4" />
             <span>Product Catalog</span>
           </div>
-          <h2 className="text-xl font-bold text-slate-900 mt-0.5">
-            AI-Ready Products ({filteredProducts.length})
-          </h2>
+          <h1 className="text-xl font-bold text-slate-900 mt-0.5">
+            Products ({filteredProducts.length})
+          </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Products normalized into machine-readable schemas with real-time inventory and pricing for AI shopping agents.
+            Keep product names, prices, and stock current. Everything else is prepared automatically.
           </p>
         </div>
 
-        <div className="flex items-center space-x-2.5">
+        <div className="flex flex-wrap items-center gap-2.5">
           <button
             onClick={onOpenWizard}
             className="flex items-center space-x-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl transition-colors cursor-pointer"
           >
             <Globe className="w-3.5 h-3.5 text-blue-600" />
-            <span>Connect Sources</span>
+            <span>Connect store</span>
           </button>
           
           <button
@@ -175,7 +175,7 @@ export default function ProductsView({ onEventNotification, onOpenWizard }) {
             className="flex items-center space-x-1.5 px-3.5 py-2 text-xs font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors cursor-pointer"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-            <span>{isSyncing ? 'Syncing...' : 'Sync Now'}</span>
+            <span>{isSyncing ? 'Syncing…' : 'Sync now'}</span>
           </button>
 
           <button
@@ -183,7 +183,7 @@ export default function ProductsView({ onEventNotification, onOpenWizard }) {
             className="flex items-center space-x-1.5 px-3.5 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-xs transition-colors cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>Add Product</span>
+            <span>Add product</span>
           </button>
         </div>
       </div>
@@ -196,7 +196,7 @@ export default function ProductsView({ onEventNotification, onOpenWizard }) {
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <span className="font-bold text-slate-900">Connected Business Sources:</span>
+              <span className="font-bold text-slate-900">Catalog connections</span>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
                 {connections.length} Active
               </span>
@@ -228,7 +228,7 @@ export default function ProductsView({ onEventNotification, onOpenWizard }) {
             <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
             <div>
               <span className="font-bold text-amber-900 block">
-                Extraction Alert: 1 product flagged for review
+                1 product needs your review
               </span>
               <span className="text-amber-700 text-[11px]">
                 {alerts[0].productTitle}: {alerts[0].issue}
@@ -243,7 +243,7 @@ export default function ProductsView({ onEventNotification, onOpenWizard }) {
             }}
             className="px-3 py-1.5 bg-white text-amber-900 hover:bg-amber-100 font-semibold rounded-lg border border-amber-300 text-xs transition-colors cursor-pointer shrink-0"
           >
-            Review & Correct
+            Review product
           </button>
         </div>
       )}
@@ -256,7 +256,7 @@ export default function ProductsView({ onEventNotification, onOpenWizard }) {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by product name, SKU, or canonical ID..."
+            placeholder="Search products or SKUs…"
             className="w-full pl-9 pr-3 py-2 text-xs bg-white border border-slate-200 rounded-xl outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
           />
         </div>
@@ -283,7 +283,7 @@ export default function ProductsView({ onEventNotification, onOpenWizard }) {
         {isLoading ? (
           <div className="p-12 text-center text-xs text-slate-400 space-y-2">
             <RefreshCw className="w-6 h-6 animate-spin mx-auto text-blue-600" />
-            <span>Loading AI Storefront catalog...</span>
+            <span>Loading products…</span>
           </div>
         ) : filteredProducts.length === 0 ? (
           <div className="p-12 text-center text-xs text-slate-500 space-y-2">
@@ -299,9 +299,8 @@ export default function ProductsView({ onEventNotification, onOpenWizard }) {
                   <th>Product</th>
                   <th>Category</th>
                   <th>Price</th>
-                  <th>Availability</th>
-                  <th>AI Readiness</th>
-                  <th>Issues & Optimization</th>
+                  <th>Stock</th>
+                  <th>Shopper status</th>
                   <th className="text-right">Action</th>
                 </tr>
               </thead>
@@ -317,18 +316,13 @@ export default function ProductsView({ onEventNotification, onOpenWizard }) {
                             <Package className="w-4 h-4" />
                           )}
                         </div>
-                        <div>
-                          <div className="font-semibold text-slate-900 flex items-center space-x-1.5">
+                        <div className="font-semibold text-slate-900 flex items-center space-x-1.5">
                             <span>{prod.title}</span>
                             {prod.manually_corrected && (
                               <span className="text-[9px] font-semibold bg-purple-50 text-purple-700 border border-purple-200 px-1.5 py-0.2 rounded-full">
                                 Corrected
                               </span>
                             )}
-                          </div>
-                          <div className="text-[11px] font-mono-code text-slate-400">
-                            {prod.canonical_id}
-                          </div>
                         </div>
                       </div>
                     </td>
@@ -351,22 +345,6 @@ export default function ProductsView({ onEventNotification, onOpenWizard }) {
                     </td>
 
                     <td>
-                      <div className="flex items-center space-x-2">
-                        <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                          <div 
-                            className={`h-full rounded-full ${
-                              prod.aiReadiness >= 90 ? 'bg-emerald-500' : 'bg-amber-500'
-                            }`}
-                            style={{ width: `${prod.aiReadiness}%` }}
-                          />
-                        </div>
-                        <span className="text-xs font-mono-code font-semibold text-slate-700">
-                          {prod.aiReadiness}%
-                        </span>
-                      </div>
-                    </td>
-
-                    <td>
                       {prod.issue ? (
                         <div className="flex items-center space-x-1.5 text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded-lg border border-amber-100 max-w-xs">
                           <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
@@ -375,7 +353,7 @@ export default function ProductsView({ onEventNotification, onOpenWizard }) {
                       ) : (
                         <div className="flex items-center space-x-1 text-xs text-emerald-600 font-medium">
                           <Check className="w-3.5 h-3.5" />
-                          <span>Schema compliant</span>
+                          <span>Ready for shoppers</span>
                         </div>
                       )}
                     </td>

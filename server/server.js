@@ -379,17 +379,21 @@ app.post('/api/agents/test/:agent', async (req, res) => {
           const result = await paymasterAgent.executeCheckout({
             mandateId: 'mandate_autonomous_shopper_01',
             buyerIntent: 'Order exceeding transaction ceiling',
-            lineItems: [{ canonical_id: 'CAN-SUBKO-SUB-QTR-3M', unit_price: 15000, quantity: 1 }],
+            lineItems: [{ canonical_id: 'CAN-SUBKO-CB-CANS-4X', unit_price: 680, quantity: 3 }],
           });
           return res.json({ success: true, scenario, result });
         } else if (scenario === 'duplicate') {
           const key = `test_idem_${Date.now()}`;
-          const r1 = await paymasterAgent.executeCheckout({ lineItems: [{ unit_price: 680 }], idempotencyKey: key });
-          const r2 = await paymasterAgent.executeCheckout({ lineItems: [{ unit_price: 680 }], idempotencyKey: key });
+          const lineItems = [{ canonical_id: 'CAN-SUBKO-CB-CANS-4X', unit_price: 680 }];
+          const r1 = await paymasterAgent.executeCheckout({ lineItems, idempotencyKey: key });
+          const r2 = await paymasterAgent.executeCheckout({ lineItems, idempotencyKey: key });
           return res.json({ success: true, scenario, firstAttempt: r1, secondAttempt: r2 });
         } else if (scenario === 'expired') {
           const expiredMandate = paymasterAgent.createMandate({ title: 'Expired Mandate', expiryDays: -5 });
-          const result = await paymasterAgent.executeCheckout({ mandateId: expiredMandate.id, lineItems: [{ unit_price: 500 }] });
+          const result = await paymasterAgent.executeCheckout({
+            mandateId: expiredMandate.id,
+            lineItems: [{ canonical_id: 'CAN-SUBKO-CB-CANS-4X', unit_price: 680 }],
+          });
           return res.json({ success: true, scenario, result });
         } else {
           const result = await paymasterAgent.executeCheckout({
@@ -602,15 +606,23 @@ app.post('/api/merchant/simulate-abc', async (req, res) => {
     });
 
     // 5. Payment completion
+    const abcMandate = paymasterAgent.createMandate({
+      title: 'ABC Electronics Demo Mandate',
+      buyerAgentId: 'agent_abc_procurement',
+      maxPerTransaction: 100000,
+      dailySpendLimit: 500000,
+      autonomousThreshold: 100000,
+      allowedCategories: ['Laptops & Computers', 'Smartphones & Mobile', 'Audio & Sound', 'Televisions & Displays', 'Accessories'],
+    });
     const paymentResult = await paymasterAgent.executeCheckout({
-      mandateId: 'mandate_autonomous_shopper_01',
+      mandateId: abcMandate.id,
       actingAgent: 'Enterprise Tech Procurement AI',
       buyerIntent: buyerSignal,
       lineItems: outreachCart.items.slice(0, 1).map(item => ({
         canonical_id: item.canonical_id,
         name: item.name,
         quantity: 1,
-        unit_price: 850, // within autonomous ceiling for clean capture
+        unit_price: item.unit_price,
       })),
       idempotencyKey: `idem_abc_sim_${Date.now()}`,
     });
@@ -696,12 +708,12 @@ app.post('/api/simulate/:scenario_id', async (req, res) => {
 
   switch (scenario_id) {
     case 'autonomous_buy': {
-      // Demo 1: Clean Autonomous Purchase (Amount ₹850 <= ₹2000 Gate)
+      // Demo 1: Clean Autonomous Purchase on a product without an active drift alert
       const result = await paymasterAgent.executeCheckout({
         mandateId: 'mandate_autonomous_shopper_01',
         actingAgent: 'Subko Autonomous Shopper Agent (v2.4)',
-        buyerIntent: 'Procure 1 pack of Subko Lot 77 Anaerobic for morning brew',
-        lineItems: [{ canonical_id: 'CAN-SUBKO-LOT77-ANAE', quantity: 1, unit_price: 850 }],
+        buyerIntent: 'Procure 1 pack of Subko Nitro Cold Brew for the office fridge',
+        lineItems: [{ canonical_id: 'CAN-SUBKO-CB-CANS-4X', quantity: 1, unit_price: 680 }],
         idempotencyKey: `idem_auto_${Date.now()}`,
         forcePriceDriftTest: false,
       });

@@ -160,7 +160,7 @@ class IntegrityAgent {
   }
 
   // Check if a specific product or SKU has an active price drift or integrity block
-  checkProductIntegrity(canonicalId) {
+  checkProductIntegrity(canonicalId, forceSimulation = false) {
     if (!canonicalId) return { hasDrift: false };
 
     const prod = ingestAgent.getProductById(canonicalId);
@@ -170,10 +170,10 @@ class IntegrityAgent {
       const matchesTarget = (d.product_id === canonicalId) || 
                             (d.canonical_sku && d.canonical_sku === canonicalId) ||
                             (isLot77 && d.product_title && d.product_title.toLowerCase().includes('lot 77'));
-      return matchesTarget && d.status === 'ACTIVE_DRIFT_ALERT' && d.trigger_fail_demo;
+      return matchesTarget && (d.status === 'ACTIVE_DRIFT_ALERT' || forceSimulation) && d.trigger_fail_demo;
     });
 
-    if (activeDrift && this.isDriftSimulationActive) {
+    if (activeDrift && (this.isDriftSimulationActive || forceSimulation)) {
       orchestrator.logEvent('INTEGRITY', 'PRICE_DRIFT_TRIGGERED_MID_CHECKOUT', {
         canonicalId,
         canonicalPrice: activeDrift.merchant_canonical_price,

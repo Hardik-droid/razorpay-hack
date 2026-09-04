@@ -51,12 +51,12 @@ export default function OnboardingWizard({ isOpen, onClose, onComplete }) {
     // Progress through the exact 3 stages specified by the user
     setTimeout(() => {
       setProcessingStage(2);
-      setProcessingMessage('Extracting information...');
+      setProcessingMessage('Reading product details...');
     }, 1200);
 
     setTimeout(() => {
       setProcessingStage(3);
-      setProcessingMessage('Creating AI storefront...');
+      setProcessingMessage('Preparing your store...');
     }, 2400);
 
     // Call real backend onboarding endpoint based on selected source
@@ -106,10 +106,10 @@ export default function OnboardingWizard({ isOpen, onClose, onComplete }) {
   ];
 
   const sourceTypes = [
-    { id: 'website', label: 'Connect Website', icon: Globe, desc: 'Crawl product pages, images, prices & stock automatically' },
-    { id: 'store', label: 'Connect Store', icon: ShoppingBag, desc: '1-Click OAuth sync with Shopify, WooCommerce, or Magento' },
-    { id: 'document', label: 'Upload Catalogue', icon: FileText, desc: 'AI OCR extracts product tables from PDF or brochures' },
-    { id: 'google', label: 'Google Business Profile', icon: MapPin, desc: 'Extract verified business location, services & ratings' },
+    { id: 'website', label: 'Connect Website', icon: Globe, desc: 'Bring in product names, images, prices, and stock' },
+    { id: 'store', label: 'Connect Store', icon: ShoppingBag, desc: 'Import from Shopify, WooCommerce, or Magento' },
+    { id: 'document', label: 'Upload Catalogue', icon: FileText, desc: 'Bring in products from a PDF or brochure' },
+    { id: 'google', label: 'Google Business Profile', icon: MapPin, desc: 'Use your verified business details and location' },
   ];
 
   return (
@@ -161,7 +161,7 @@ export default function OnboardingWizard({ isOpen, onClose, onComplete }) {
                 <span className="text-xs font-semibold text-blue-600 uppercase tracking-wider">Step 1 of 4</span>
                 <h2 className="text-xl font-bold text-slate-900 mt-0.5">What do you sell?</h2>
                 <p className="text-xs text-slate-500 mt-1">
-                  Select your primary industry so our AI understands your catalog attributes, size matrices, and customer questions.
+                  Choose your main category so product details and customer searches are set up correctly.
                 </p>
               </div>
 
@@ -215,7 +215,7 @@ export default function OnboardingWizard({ isOpen, onClose, onComplete }) {
                 <span className="text-xs font-semibold text-blue-600 uppercase tracking-wider">Step 2 of 4</span>
                 <h2 className="text-xl font-bold text-slate-900 mt-0.5">Connect your business</h2>
                 <p className="text-xs text-slate-500 mt-1">
-                  Choose how you want to bring your products in. No CSVs or JSON files needed.
+                  Choose where your products already live. We will handle the formatting.
                 </p>
               </div>
 
@@ -263,7 +263,7 @@ export default function OnboardingWizard({ isOpen, onClose, onComplete }) {
                       />
                     </div>
                     <span className="text-[11px] text-slate-400 block">
-                      AI will crawl your domain, discover product pages, and extract images, prices, variants & descriptions.
+                      We will find your product pages and bring in images, prices, options, and descriptions.
                     </span>
                   </div>
                 )}
@@ -296,7 +296,7 @@ export default function OnboardingWizard({ isOpen, onClose, onComplete }) {
                         className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-600 font-mono-code"
                       />
                       <span className="text-[11px] text-slate-400 block">
-                        OAuth 2.0 automatic sync: Products, Inventory, Prices, Images, and Orders.
+                        Products, stock, prices, images, and orders are imported for you.
                       </span>
                     </div>
                   </div>
@@ -311,7 +311,7 @@ export default function OnboardingWizard({ isOpen, onClose, onComplete }) {
                       <span className="text-[10px] text-slate-400">PDF Catalogue, Product Brochure, or Wholesale Price List</span>
                     </div>
                     <span className="text-[11px] text-slate-400 block">
-                      AI computer vision will OCR tables, extract specifications, and structure your catalog.
+                      We will read product names, prices, and details from your file.
                     </span>
                   </div>
                 )}
@@ -327,7 +327,7 @@ export default function OnboardingWizard({ isOpen, onClose, onComplete }) {
                       className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-600"
                     />
                     <span className="text-[11px] text-slate-400 block">
-                      Extracts verified business details, location, services, ratings, and media.
+                      Uses your verified details, location, services, ratings, and photos.
                     </span>
                   </div>
                 )}
@@ -347,7 +347,7 @@ export default function OnboardingWizard({ isOpen, onClose, onComplete }) {
                   className="flex items-center space-x-1.5 px-4 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-xs transition-colors cursor-pointer"
                 >
                   <Sparkles className="w-3.5 h-3.5" />
-                  <span>Start AI Ingestion</span>
+                  <span>Connect and prepare store</span>
                 </button>
               </div>
             </div>
@@ -366,7 +366,7 @@ export default function OnboardingWizard({ isOpen, onClose, onComplete }) {
               <div className="space-y-1">
                 <h3 className="text-base font-bold text-slate-900">{processingMessage}</h3>
                 <p className="text-xs text-slate-500">
-                  Connecting to source, parsing structured data, and synthesizing Schema.org JSON-LD feed.
+                  Reading your source and preparing a clean product catalog.
                 </p>
               </div>
 
@@ -390,7 +390,7 @@ export default function OnboardingWizard({ isOpen, onClose, onComplete }) {
                     <div className="w-4 h-4 rounded-full border-2 border-slate-300" />
                   )}
                   <span className={processingStage >= 2 ? 'font-semibold text-slate-800' : 'text-slate-400'}>
-                    Extracting information...
+                    Reading product details...
                   </span>
                 </div>
 
@@ -401,7 +401,7 @@ export default function OnboardingWizard({ isOpen, onClose, onComplete }) {
                     <div className="w-4 h-4 rounded-full border-2 border-slate-300" />
                   )}
                   <span className={processingStage >= 3 ? 'font-semibold text-slate-800' : 'text-slate-400'}>
-                    Creating AI storefront...
+                    Preparing your store...
                   </span>
                 </div>
               </div>
@@ -415,9 +415,9 @@ export default function OnboardingWizard({ isOpen, onClose, onComplete }) {
                 <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-2">
                   <CheckCheck className="w-6 h-6" />
                 </div>
-                <h2 className="text-xl font-bold text-slate-900">Your AI Storefront is Created!</h2>
+                <h2 className="text-xl font-bold text-slate-900">Your store is ready for AI shoppers</h2>
                 <p className="text-xs text-slate-500 max-w-md mx-auto">
-                  Your business is now discoverable and purchasable by ChatGPT, Google AI Overviews, Claude MCP, and autonomous shopping agents.
+                  Customers can now find accurate products and safely place orders through supported AI shopping experiences.
                 </p>
               </div>
 
@@ -430,19 +430,19 @@ export default function OnboardingWizard({ isOpen, onClose, onComplete }) {
                   </span>
                 </div>
                 <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-center">
-                  <span className="text-[10px] text-slate-400 font-semibold uppercase block">AI Readiness Score</span>
+                  <span className="text-[10px] text-slate-400 font-semibold uppercase block">Products ready</span>
                   <span className="text-lg font-bold text-emerald-600 font-mono-code">96 / 100</span>
                 </div>
                 <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-center">
-                  <span className="text-[10px] text-slate-400 font-semibold uppercase block">Schema.org Feed</span>
+                  <span className="text-[10px] text-slate-400 font-semibold uppercase block">Checkout protection</span>
                   <span className="text-xs font-bold text-blue-600 font-mono-code block mt-1">Live & Verified</span>
                 </div>
               </div>
 
               <div className="p-3.5 bg-blue-50/60 border border-blue-200 rounded-xl text-xs text-blue-900 flex items-center justify-between">
                 <div>
-                  <span className="font-semibold block">Continuous Background Synchronization</span>
-                  <span className="text-[11px] text-blue-700">Changes to your prices, stock, or products sync automatically.</span>
+                  <span className="font-semibold block">Easy catalog refresh</span>
+                  <span className="text-[11px] text-blue-700">Use Sync store whenever prices, stock, or products change.</span>
                 </div>
                 <span className="px-2 py-1 bg-white text-blue-700 rounded-md font-mono-code text-[10px] border border-blue-200">
                   Active

@@ -114,7 +114,7 @@ class PaymasterAgent {
     });
 
     // 2. RETRIEVE & VALIDATE MANDATE
-    const mandate = this.mandates.find(m => m.id === mandateId) || this.mandates[0];
+    const mandate = this.mandates.find(m => m.id === mandateId);
     if (!mandate || mandate.status !== 'ACTIVE') {
       this.stats.transactionsFailed++;
       const errorMsg = 'MANDATE_INVALID_OR_REVOKED: No active authorization found.';
@@ -143,9 +143,41 @@ class PaymasterAgent {
     const passedConstraints = [];
 
     for (const item of lineItems) {
-      const prod = ingestAgent.getProductById(item.canonical_id || item.productId || 'CAN-SUBKO-LOT77-ANAE');
-      const qty = item.quantity || 1;
-      const unitPrice = item.unit_price || (prod ? prod.price : 850);
+      const productId = item.canonical_id || item.productId;
+      const prod = ingestAgent.getProductById(productId);
+      if (!prod) {
+        this.stats.transactionsBlocked++;
+        return {
+          success: false,
+          status: 'REJECTED',
+          code: 'PRODUCT_NOT_FOUND',
+          error: `PRODUCT_NOT_FOUND: No canonical catalog product found for '${productId || 'missing product id'}'.`,
+        };
+      }
+
+      const qty = Number(item.quantity ?? 1);
+      if (!Number.isInteger(qty) || qty <= 0) {
+        this.stats.transactionsBlocked++;
+        return {
+          success: false,
+          status: 'REJECTED',
+          code: 'INVALID_QUANTITY',
+          error: 'INVALID_QUANTITY: Item quantity must be a positive integer.',
+        };
+      }
+
+      const canonicalPrice = Number(prod.price);
+      if (item.unit_price !== undefined && Number(item.unit_price) !== canonicalPrice) {
+        this.stats.transactionsBlocked++;
+        return {
+          success: false,
+          status: 'REJECTED',
+          code: 'PRICE_MISMATCH',
+          error: `PRICE_MISMATCH: Submitted unit price ₹${item.unit_price} does not match canonical price ₹${canonicalPrice}.`,
+        };
+      }
+
+      const unitPrice = canonicalPrice;
       const lineTotal = unitPrice * qty;
       totalAmount += lineTotal;
 
@@ -172,12 +204,8 @@ class PaymasterAgent {
     passedConstraints.push(`Category whitelist validated: ${resolvedItems.map(i => i.category).join(', ')}`);
 
     // 4. SIGNATURE FAILURE CHECK: PRICE DRIFT CAUGHT MID-CHECKOUT
-    if (forcePriceDriftTest) {
-      integrityAgent.isDriftSimulationActive = true;
-    }
-
     for (const item of resolvedItems) {
-      const driftCheck = integrityAgent.checkProductIntegrity(item.canonical_id);
+      const driftCheck = integrityAgent.checkProductIntegrity(item.canonical_id, forcePriceDriftTest);
       if (driftCheck.hasDrift) {
         this.stats.transactionsBlocked++;
         // Price drift caught mid-checkout!
@@ -393,8 +421,11 @@ class PaymasterAgent {
       return { success: false, error: 'Transaction not found in pending gate queue.' };
     }
 
+    const mandate = this.mandates.find(m => m.id === pending.mandate_id);
+    if (!mandate || mandate.status !== 'ACTIVE') {
+      return { success: false, error: 'Mandate is no longer active.' };
+    }
     this.pendingGateTransactions.delete(transactionId);
-    const mandate = this.mandates.find(m => m.id === pending.mandate_id) || this.mandates[0];
 
     const result = this.completePaymentCapture({
       transactionId: pending.transaction_id,
