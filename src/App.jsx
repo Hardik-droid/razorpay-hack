@@ -10,6 +10,7 @@ import DataHealthView from './components/DataHealthView';
 import BuyerLeadsView from './components/BuyerLeadsView';
 import AutomationCenterView from './components/AutomationCenterView';
 import AgentHealthView from './components/AgentHealthView';
+import AgentMonitoringView from './components/AgentMonitoringView';
 import PaymentsView from './components/PaymentsView';
 import AnalyticsView from './components/AnalyticsView';
 import SettingsView from './components/SettingsView';
@@ -265,6 +266,12 @@ function AppContent() {
 
           {activeTab === 'health' && (
             <AgentHealthView
+              onEventNotification={triggerNotification}
+            />
+          )}
+
+          {activeTab === 'monitoring' && (
+            <AgentMonitoringView
               onEventNotification={triggerNotification}
             />
           )}
