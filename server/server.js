@@ -12,6 +12,7 @@ import { outreachAgent } from './agents/outreachAgent.js';
 import { paymasterAgent } from './agents/paymasterAgent.js';
 import { RAW_CATALOG_SAMPLES } from './data/seedData.js';
 import { mockMerchantDb } from './db/mockMerchantDb.js';
+import { deepseekService } from './services/deepseekService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -80,6 +81,28 @@ app.post('/api/db/neon-provision', async (req, res) => {
   try {
     const result = await neonDb.initializeSchema();
     res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 0.5 DeepSeek AI API Endpoints
+app.get('/api/ai/deepseek-status', (req, res) => {
+  res.json(deepseekService.getStatus());
+});
+
+app.post('/api/ai/deepseek-test', async (req, res) => {
+  const result = await deepseekService.testConnection();
+  res.json(result);
+});
+
+app.post('/api/ai/deepseek-configure', async (req, res) => {
+  try {
+    const { apiKey } = req.body;
+    if (!apiKey) return res.status(400).json({ error: 'API key is required' });
+    deepseekService.setApiKey(apiKey);
+    const testResult = await deepseekService.testConnection();
+    res.json({ success: true, status: deepseekService.getStatus(), test: testResult });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
